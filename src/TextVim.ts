@@ -1,5 +1,5 @@
 import { BaseHandler } from "@plurnk/plurnk-mimetypes";
-import type { HandlerContent, MimeSymbol } from "@plurnk/plurnk-mimetypes";
+import type { HandlerContent, MimeRef, MimeSymbol } from "@plurnk/plurnk-mimetypes";
 
 // text/x-vim handler (Tier 4 hand-roll, symbols only).
 //
@@ -30,6 +30,20 @@ export default class TextVim extends BaseHandler {
             ? content
             : new TextDecoder("utf-8").decode(content);
         return scan(text);
+    }
+
+    // References channel (SPEC §16). Hand-rolled like the symbols scan: the
+    // unambiguous call form is the `call <Name>(` statement, so v1 captures
+    // exactly those — they join to local `function!`/`def` defs; built-ins
+    // (`call append(...)`) are honest dead rows. Container is the enclosing
+    // function. Expression-position and vim9 implicit calls (`Foo()` with no
+    // `call`) are deferred — precision over recall. Same heredoc/comment
+    // skipping as the symbol scan, so string/comment content never surfaces.
+    override references(content: HandlerContent): MimeRef[] {
+        const text = typeof content === "string"
+            ? content
+            : new TextDecoder("utf-8").decode(content);
+        return scanRefs(text);
     }
 }
 
@@ -159,4 +173,61 @@ function col(m: RegExpExecArray, group: number): number {
 
 function sym(kind: MimeSymbol["kind"], name: string, line: number, column: number): MimeSymbol {
     return { name, kind, line, endLine: line, column, endColumn: column + name.length };
+}
+
+// A `call` statement: `cal[l] [scope:]Name(`. The name (with its scope prefix,
+// so it matches how `function!` defs are stored) is the callee. Anchored at
+// line start (after whitespace), so a `call X(` inside a string assignment
+// (`let s = "call X("`) — which starts with `let` — is never matched.
+const RE_CALL = /^\s*cal(?:l)?\s+((?:<[Ss][Ii][Dd]>|[gsbwtl]:)?[A-Za-z_][\w#]*)\s*\(/d;
+
+function scanRefs(text: string): MimeRef[] {
+    const lines = text.split("\n");
+    const out: MimeRef[] = [];
+    let currentFn: string | null = null; // enclosing function → ref container
+    let heredoc: string | null = null;
+
+    for (let i = 0; i < lines.length; i += 1) {
+        const line = lines[i];
+        const lineNo = i + 1;
+
+        if (heredoc !== null) {
+            if (line.trim() === heredoc) heredoc = null;
+            continue;
+        }
+        const lead = line.trimStart();
+        if (lead.length === 0 || lead.startsWith('"')) continue;
+
+        if (RE_END_FN.test(line)) { currentFn = null; continue; }
+
+        const fn = RE_FUNCTION.exec(line) ?? RE_DEF.exec(line);
+        if (fn) {
+            currentFn = fn[1];
+            const opener = RE_HEREDOC.exec(line);
+            if (opener) heredoc = opener[1];
+            continue;
+        }
+
+        const c = RE_CALL.exec(line);
+        if (c) {
+            const written = c[1];
+            // <SID>Name and s:Name name the same script-local function — fold
+            // to s: so the ref joins the `function! s:Name(` def.
+            const name = written.replace(/^<[Ss][Ii][Dd]>/, "s:");
+            const column = col(c, 1);
+            out.push({
+                name,
+                kind: "call",
+                line: lineNo,
+                column,
+                endLine: lineNo,
+                endColumn: column + written.length,
+                ...(currentFn !== null && { container: currentFn }),
+            });
+        }
+
+        const hd = RE_HEREDOC.exec(line);
+        if (hd) heredoc = hd[1];
+    }
+    return out;
 }
