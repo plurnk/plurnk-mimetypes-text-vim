@@ -1,6 +1,6 @@
 {
     "name": "@plurnk/plurnk-mimetypes-text-vim",
-    "version": "0.2.1",
+    "version": "0.2.2",
     "description": "text/x-vim (Vimscript) mimetype handler for plurnk-service. Hand-rolled line scanner; no parser dependency.",
     "type": "module",
     "license": "MIT",
@@ -50,7 +50,7 @@
         "prepublishOnly": "npm run deps:fresh && npm audit --audit-level=moderate && npm test"
     },
     "devDependencies": {
-        "@plurnk/plurnk-mimetypes": "^0.15.34",
+        "@plurnk/plurnk-mimetypes": "0.16.0",
         "@types/node": "^26.0.0",
         "typescript": "^6.0.3"
     },
