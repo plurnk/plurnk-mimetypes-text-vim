@@ -1,6 +1,6 @@
 {
     "name": "@plurnk/plurnk-mimetypes-text-vim",
-    "version": "0.2.6",
+    "version": "0.2.7",
     "description": "text/x-vim (Vimscript) mimetype handler for plurnk-service. Hand-rolled line scanner; no parser dependency.",
     "type": "module",
     "license": "MIT",
