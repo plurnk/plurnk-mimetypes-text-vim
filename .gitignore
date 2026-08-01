@@ -4,5 +4,4 @@ dist/
 .env.*
 !.env.defaults
 !.env.example
-AGENTS.md
 *.tsbuildinfo
