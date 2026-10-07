@@ -23,3 +23,8 @@ Function-local (`l:`), buffer/window/tab (`b:`/`w:`/`t:`) lets and comment lines
 ## license
 
 MIT.
+
+## Versioning
+
+This package versions independently. Compatibility is declared by its dependency
+ranges; a Plurnk release does not require a release of this package.
